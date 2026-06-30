@@ -1,0 +1,14 @@
+.superpowers/
+
+# Build
+/dist/
+cdkm
+*.exe
+
+# Runtime
+.cdkm/
+cdk.out/
+
+# Go
+*.test
+*.out
