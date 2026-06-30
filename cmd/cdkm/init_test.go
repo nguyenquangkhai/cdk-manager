@@ -140,6 +140,34 @@ func TestAllSelectionsEmptyTags(t *testing.T) {
 	}
 }
 
+func TestValidateConfigBytes(t *testing.T) {
+	t.Run("valid", func(t *testing.T) {
+		doc := []byte(`
+accounts:
+  dev:
+    profile: dev
+    region: us-east-1
+`)
+		if err := validateConfigBytes(doc); err != nil {
+			t.Errorf("expected nil error, got: %v", err)
+		}
+	})
+
+	t.Run("invalid-schema", func(t *testing.T) {
+		doc := []byte("accounts: {}\n")
+		if err := validateConfigBytes(doc); err == nil {
+			t.Error("expected non-nil error for empty accounts, got nil")
+		}
+	})
+
+	t.Run("invalid-yaml", func(t *testing.T) {
+		doc := []byte("accounts: [oops\n")
+		if err := validateConfigBytes(doc); err == nil {
+			t.Error("expected non-nil error for malformed YAML, got nil")
+		}
+	})
+}
+
 func TestEditInEditorRoundTrip(t *testing.T) {
 	orig := editorRunner
 	defer func() { editorRunner = orig }()

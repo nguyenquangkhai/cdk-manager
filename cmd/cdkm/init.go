@@ -13,6 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mattn/go-isatty"
 	"github.com/nguyenquangkhai/cdk-manager/internal/awsconfig"
+	"github.com/nguyenquangkhai/cdk-manager/internal/config"
 	"github.com/nguyenquangkhai/cdk-manager/internal/tui"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -83,6 +84,19 @@ var editorRunner = func(path string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+// validateConfigBytes checks that edited init output parses AND passes the
+// config schema validation (non-empty accounts, known perAccount/group refs).
+func validateConfigBytes(b []byte) error {
+	var cfg config.Config
+	if err := yaml.Unmarshal(b, &cfg); err != nil {
+		return fmt.Errorf("invalid YAML: %w", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // editInEditor writes content to a temp file, invokes editorRunner, and
@@ -259,12 +273,16 @@ func newInitCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				// Validate: attempt to unmarshal into a generic map to catch YAML errors.
-				var check interface{}
-				if err := yaml.Unmarshal(edited, &check); err != nil {
-					fmt.Fprintf(os.Stderr, "Parse error in edited config: %v\n", err)
-					fmt.Fprintf(os.Stderr, "Raw edited content:\n%s\n", edited)
-					return fmt.Errorf("edited config is not valid YAML: %w", err)
+				if err := validateConfigBytes(edited); err != nil {
+					if toStdout {
+						_, _ = os.Stdout.Write(edited)
+						return fmt.Errorf("edited config failed validation: %w", err)
+					}
+					rejPath := "cdkm.yaml.rej"
+					if werr := os.WriteFile(rejPath, edited, 0o644); werr != nil {
+						return fmt.Errorf("edited config failed validation: %w (also failed to save recovery file: %v)", err, werr)
+					}
+					return fmt.Errorf("edited config failed validation: %w\nYour edits were saved to %s — fix and retry", err, rejPath)
 				}
 				out = edited
 			} else {
