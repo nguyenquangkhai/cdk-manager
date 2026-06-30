@@ -41,6 +41,7 @@ type Options struct {
 	FailFast    bool
 	LogDir      string
 	DryRun      bool
+	// OnUpdate is called concurrently from multiple goroutines when Concurrency > 1; it must be thread-safe.
 	OnUpdate    func(Update)
 	Parse       func(string) (adapter.State, bool)
 }
@@ -121,6 +122,7 @@ func runOne(ctx context.Context, job Job, opts Options) Result {
 	if err := cmd.Start(); err != nil {
 		_ = pr.Close()
 		_ = pw.Close()
+		emit(adapter.StateFailed, err.Error())
 		return Result{Target: job.Target.Name, State: adapter.StateFailed, Err: err, LogPath: logPath, Elapsed: time.Since(start)}
 	}
 

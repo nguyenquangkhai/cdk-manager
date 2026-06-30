@@ -89,7 +89,7 @@ func TestFailFastCancelsPending(t *testing.T) {
 			failed++
 		}
 	}
-	if failed == 0 {
-		t.Fatal("expected at least one failure recorded")
+	if failed < 2 {
+		t.Fatalf("expected >=2 failures (a failed + >=1 cancelled), got %d", failed)
 	}
 }
