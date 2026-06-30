@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -141,7 +142,7 @@ func newInitCmd() *cobra.Command {
 // Tags/groups already entered for earlier accounts are surfaced as
 // suggestions so the user reuses a consistent set instead of retyping
 // (avoiding prod/production-style typos).
-func collectChoices(r *os.File, w *os.File, profiles []awsconfig.Profile, nonInteractive bool) map[string]profileChoice {
+func collectChoices(r io.Reader, w io.Writer, profiles []awsconfig.Profile, nonInteractive bool) map[string]profileChoice {
 	choices := map[string]profileChoice{}
 	if nonInteractive {
 		for _, p := range profiles {
@@ -161,11 +162,15 @@ func collectChoices(r *os.File, w *os.File, profiles []awsconfig.Profile, nonInt
 			continue
 		}
 		fmt.Fprintf(w, "  tags for %s (comma-separated, blank for none)%s: ", p.Name, suggestion(seenTags))
-		sc.Scan()
+		if !sc.Scan() {
+			break
+		}
 		tags := splitCSV(sc.Text())
 		seenTags.addAll(tags)
 		fmt.Fprintf(w, "  groups for %s (comma-separated, blank for none)%s: ", p.Name, suggestion(seenGroups))
-		sc.Scan()
+		if !sc.Scan() {
+			break
+		}
 		groups := splitCSV(sc.Text())
 		seenGroups.addAll(groups)
 		choices[p.Name] = profileChoice{Include: true, Tags: tags, Groups: groups}
