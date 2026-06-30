@@ -20,7 +20,7 @@ func Summarize(w io.Writer, results []engine.Result) int {
 		if r.State == adapter.StateFailed {
 			code = 1
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\n", r.Target, r.State, r.Elapsed.Round(1e6), r.ExitCode)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\n", r.Target, r.State, r.Elapsed.Round(1e6), r.ExitCode) // Round to microsecond precision (1e6 ns)
 	}
 	tw.Flush()
 	return code
