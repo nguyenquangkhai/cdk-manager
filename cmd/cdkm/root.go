@@ -21,10 +21,17 @@ func init() {
 		Version: version,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if autoCheckAllowed() {
-				go ver.Refresh(context.Background(), versionCachePath, ver.GitHubFetcher, 24*time.Hour)
+				go func() {
+					ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+					defer cancel()
+					_ = ver.Refresh(ctx, versionCachePath, ver.GitHubFetcher, 24*time.Hour)
+				}()
 			}
 		},
 		PersistentPostRun: func(cmd *cobra.Command, args []string) {
+			if cmd.Name() == "version" {
+				return
+			}
 			if autoCheckAllowed() {
 				ver.WarnIfOutdated(os.Stderr, versionCachePath, version)
 			}
