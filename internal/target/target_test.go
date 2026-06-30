@@ -53,6 +53,40 @@ func TestResolveUnknownGroup(t *testing.T) {
 	}
 }
 
+func TestResolveByAccount(t *testing.T) {
+	got, err := Resolve(fixture(), Selector{Account: "dev-eu"})
+	if err != nil {
+		t.Fatalf("got error %v, want nil", err)
+	}
+	if len(got) != 1 || got[0].Name != "dev-eu" {
+		t.Fatalf("got %+v, want 1 target named dev-eu", got)
+	}
+}
+
+func TestResolveUnknownAccount(t *testing.T) {
+	_, err := Resolve(fixture(), Selector{Account: "ghost"})
+	if err == nil {
+		t.Fatal("expected error for unknown account, got nil")
+	}
+}
+
+func TestResolveTagZeroMatches(t *testing.T) {
+	_, err := Resolve(fixture(), Selector{Tag: "nonexistent"})
+	if err == nil {
+		t.Fatal("expected error for zero-match tag selector, got nil")
+	}
+}
+
+func TestResolveGroupByTags(t *testing.T) {
+	got, err := Resolve(fixture(), Selector{Group: "prod"})
+	if err != nil {
+		t.Fatalf("got error %v, want nil", err)
+	}
+	if len(got) != 1 || got[0].Name != "prod-us" {
+		t.Fatalf("got %+v, want 1 target named prod-us", got)
+	}
+}
+
 func TestStacksMerge(t *testing.T) {
 	c := fixture()
 	prod := Target{Name: "prod-us"}
