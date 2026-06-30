@@ -27,7 +27,6 @@ type Model struct {
 	filter    string
 	filtering bool
 	aborted   bool
-	done      bool
 }
 
 // NewModel creates a new multiselect model.
@@ -96,7 +95,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.aborted = true
 		return m, tea.Quit
 	case km.Type == tea.KeyEnter:
-		m.done = true
 		return m, tea.Quit
 	case km.Type == tea.KeyUp || (km.Type == tea.KeyRunes && string(km.Runes) == "k"):
 		if m.cursor > 0 {
