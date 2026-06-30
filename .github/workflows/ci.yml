@@ -20,5 +20,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
-        with: { go-version: 'stable' }
+        # Pin to the module's Go floor: golangci-lint typechecks against this
+        # toolchain's stdlib, and a newer "stable" (1.26+) trips its bundled
+        # typechecker on fips140only_go1.26.go.
+        with: { go-version: '1.24' }
       - uses: golangci/golangci-lint-action@v6
+        # v1.64.x is built with go1.24, so it can load a go1.24 module.
+        with: { version: v1.64.8 }

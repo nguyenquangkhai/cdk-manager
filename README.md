@@ -2,7 +2,7 @@
 
 Fan AWS CDK operations across many accounts in parallel — from your laptop.
 
-`cdkm deploy --group prod` synthesizes and deploys to every account in the `prod` group concurrently, with each account's output isolated in `cdk.out/<account>`. Live progress table, safety gates on destroy, and a single CLI to rule them all.
+`cdkm deploy --group prod` synthesizes and deploys to every account in the `prod` group concurrently, with each account's output isolated in `cdk.out/<account>`. Live per-target progress, safety gates on destroy, and a single CLI to rule them all.
 
 ## Install
 

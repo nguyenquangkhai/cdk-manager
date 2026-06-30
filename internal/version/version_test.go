@@ -16,7 +16,7 @@ func TestOutdated(t *testing.T) {
 		{"0.1.0", "0.1.0", false},
 		{"v0.2.0", "v0.1.0", false},
 		{"v1.0.0", "v1.0.1", true},
-		{"dev", "v0.2.0", false},   // non-semver current
+		{"dev", "v0.2.0", false},     // non-semver current
 		{"v0.1.0", "garbage", false}, // non-semver latest
 	}
 	for _, c := range cases {

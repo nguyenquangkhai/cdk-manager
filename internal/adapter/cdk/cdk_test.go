@@ -58,8 +58,8 @@ func TestParseStatus(t *testing.T) {
 	c := New()
 	cases := map[string]adapter.State{
 		"dev-eu: synthesizing CloudFormation template": adapter.StateSynth,
-		"AppStack: deploying...":                        adapter.StateDeploy,
-		"unrelated noise":                               "",
+		"AppStack: deploying...":                       adapter.StateDeploy,
+		"unrelated noise":                              "",
 	}
 	for line, want := range cases {
 		got, ok := c.ParseStatus(line)
