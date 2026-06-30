@@ -1,0 +1,20 @@
+# Opt-in local git hooks. Install once: `lefthook install`.
+# CI remains the authoritative gate; these hooks are a fast local convenience.
+pre-commit:
+  parallel: true
+  commands:
+    gofmt:
+      glob: "*.go"
+      run: |
+        unformatted=$(gofmt -l {staged_files})
+        if [ -n "$unformatted" ]; then
+          echo "Unformatted files (run: gofmt -w .):"
+          echo "$unformatted"
+          exit 1
+        fi
+    vet:
+      run: go vet ./...
+pre-push:
+  commands:
+    test:
+      run: go test ./...
