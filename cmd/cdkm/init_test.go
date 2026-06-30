@@ -1,11 +1,11 @@
 package main
 
 import (
-	"bytes"
-	"strings"
+	"reflect"
 	"testing"
 
 	"github.com/nguyenquangkhai/cdk-manager/internal/awsconfig"
+	"github.com/nguyenquangkhai/cdk-manager/internal/tui"
 )
 
 func TestBuildSelections(t *testing.T) {
@@ -40,21 +40,6 @@ func TestBuildSelections(t *testing.T) {
 	}
 }
 
-func TestOrderedSetDedupAndOrder(t *testing.T) {
-	s := newOrderedSet()
-	s.addAll([]string{"dev", "eu"})
-	s.addAll([]string{"eu", "prod"}) // eu is a dup
-	want := []string{"dev", "eu", "prod"}
-	if len(s.items) != len(want) {
-		t.Fatalf("items=%v want %v", s.items, want)
-	}
-	for i := range want {
-		if s.items[i] != want[i] {
-			t.Fatalf("items=%v want %v", s.items, want)
-		}
-	}
-}
-
 func TestBuildSelectionsExcludesIncludeFalse(t *testing.T) {
 	profiles := []awsconfig.Profile{
 		{Name: "include-me", Region: "us-east-1", AccountID: "111111111111"},
@@ -75,41 +60,57 @@ func TestBuildSelectionsExcludesIncludeFalse(t *testing.T) {
 	}
 }
 
-func TestCollectChoicesInteractive(t *testing.T) {
+func TestInteractiveTUIBulkTags(t *testing.T) {
 	profiles := []awsconfig.Profile{
-		{Name: "a", Region: "r1", AccountID: "111111111111"},
-		{Name: "b", Region: "r2", AccountID: "222222222222"},
+		{Name: "prod-eu", Region: "eu-west-1"},
+		{Name: "prod-us", Region: "us-east-1"},
+		{Name: "dev-eu", Region: "eu-west-1", AccountID: "999"},
 	}
-	input := "y\ndev,eu\ngroup1\ny\nprod\ngroup1\n"
-	r := strings.NewReader(input)
-	w := &bytes.Buffer{}
-
-	choices := collectChoices(r, w, profiles, false)
-
-	// Both should be included
-	if !choices["a"].Include || !choices["b"].Include {
-		t.Errorf("both profiles should be included: a.Include=%v, b.Include=%v", choices["a"].Include, choices["b"].Include)
+	// Scripted selections: first call = account pick; subsequent = per-tag pick.
+	calls := 0
+	origRun := runSelect
+	defer func() { runSelect = origRun }()
+	runSelect = func(title string, items []tui.Item, preselectAll bool) ([]string, bool, error) {
+		calls++
+		switch calls {
+		case 1: // account selection
+			return []string{"prod-eu", "prod-us", "dev-eu"}, false, nil
+		case 2: // accounts getting tag "prod"
+			return []string{"prod-eu", "prod-us"}, false, nil
+		default: // accounts getting tag "eu"
+			return []string{"prod-eu", "dev-eu"}, false, nil
+		}
 	}
-
-	// Check tags
-	if len(choices["a"].Tags) != 2 || choices["a"].Tags[0] != "dev" || choices["a"].Tags[1] != "eu" {
-		t.Errorf("a.Tags = %v, want [dev eu]", choices["a"].Tags)
-	}
-	if len(choices["b"].Tags) != 1 || choices["b"].Tags[0] != "prod" {
-		t.Errorf("b.Tags = %v, want [prod]", choices["b"].Tags)
-	}
-
-	// Check groups
-	if len(choices["a"].Groups) != 1 || choices["a"].Groups[0] != "group1" {
-		t.Errorf("a.Groups = %v, want [group1]", choices["a"].Groups)
-	}
-	if len(choices["b"].Groups) != 1 || choices["b"].Groups[0] != "group1" {
-		t.Errorf("b.Groups = %v, want [group1]", choices["b"].Groups)
+	// promptLine feeds tag names: "prod", "eu", then blank to finish.
+	tagScript := []string{"prod", "eu", ""}
+	ti := 0
+	promptLine := func(string) (string, bool) {
+		v := tagScript[ti]
+		ti++
+		return v, true
 	}
 
-	// Verify the suggestion feature worked (output should contain "[existing: dev, eu]")
-	output := w.String()
-	if !strings.Contains(output, "[existing: dev, eu]") {
-		t.Errorf("output missing suggestion hint for b's tags. Output:\n%s", output)
+	sels, err := interactiveTUI(profiles, map[string]string{}, promptLine)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byName := map[string]awsconfig.Selection{}
+	for _, s := range sels {
+		byName[s.Name] = s
+	}
+	if len(sels) != 3 {
+		t.Fatalf("want 3 selections, got %d", len(sels))
+	}
+	if !reflect.DeepEqual(byName["prod-eu"].Tags, []string{"prod", "eu"}) {
+		t.Errorf("prod-eu tags=%v want [prod eu]", byName["prod-eu"].Tags)
+	}
+	if !reflect.DeepEqual(byName["prod-us"].Tags, []string{"prod"}) {
+		t.Errorf("prod-us tags=%v want [prod]", byName["prod-us"].Tags)
+	}
+	if !reflect.DeepEqual(byName["dev-eu"].Tags, []string{"eu"}) {
+		t.Errorf("dev-eu tags=%v want [eu]", byName["dev-eu"].Tags)
+	}
+	if byName["dev-eu"].AccountID != "999" {
+		t.Errorf("dev-eu should keep profile AccountID 999, got %q", byName["dev-eu"].AccountID)
 	}
 }

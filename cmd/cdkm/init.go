@@ -4,13 +4,15 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/mattn/go-isatty"
 	"github.com/nguyenquangkhai/cdk-manager/internal/awsconfig"
+	"github.com/nguyenquangkhai/cdk-manager/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -56,19 +58,91 @@ func defaultAWSPaths() (string, string) {
 	return cfg, creds
 }
 
-func splitCSV(s string) []string {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return nil
+// runSelect runs a multiselect over items and returns the chosen Keys (or
+// an error if the user aborted). Overridable in tests.
+var runSelect = func(title string, items []tui.Item, preselectAll bool) ([]string, bool, error) {
+	m := tui.NewModel(title, items, preselectAll)
+	out, err := tea.NewProgram(m).Run()
+	if err != nil {
+		return nil, false, err
 	}
-	parts := strings.Split(s, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if v := strings.TrimSpace(p); v != "" {
-			out = append(out, v)
+	fm := out.(tui.Model)
+	return fm.Selected(), fm.Aborted(), nil
+}
+
+// promptLineStdin reads a line from stdin. Returns ("", false) on EOF.
+func promptLineStdin(prompt string) (string, bool) {
+	fmt.Print(prompt)
+	sc := bufio.NewScanner(os.Stdin)
+	if !sc.Scan() {
+		return "", false
+	}
+	return sc.Text(), true
+}
+
+// interactiveTUI drives the full flow: pick accounts, then a bulk-tag loop
+// (prompt tag name via promptLine; multiselect which chosen accounts get it).
+// Returns Selections ready for awsconfig.Generate.
+func interactiveTUI(profiles []awsconfig.Profile, accountIDs map[string]string,
+	promptLine func(prompt string) (string, bool)) ([]awsconfig.Selection, error) {
+
+	items := make([]tui.Item, len(profiles))
+	for i, p := range profiles {
+		items[i] = tui.Item{Key: p.Name, Desc: p.Region}
+	}
+	chosen, aborted, err := runSelect("Select accounts to include", items, false)
+	if err != nil {
+		return nil, err
+	}
+	if aborted {
+		return nil, fmt.Errorf("aborted")
+	}
+	chosenSet := map[string]bool{}
+	for _, k := range chosen {
+		chosenSet[k] = true
+	}
+	tags := map[string][]string{} // profile -> tags (in assignment order)
+
+	// Bulk-tag loop: name a tag, pick which chosen accounts get it.
+	chosenItems := make([]tui.Item, 0, len(chosen))
+	for _, p := range profiles {
+		if chosenSet[p.Name] {
+			chosenItems = append(chosenItems, tui.Item{Key: p.Name, Desc: p.Region})
 		}
 	}
-	return out
+	for {
+		name, ok := promptLine("Tag name to assign (blank to finish): ")
+		if !ok || strings.TrimSpace(name) == "" {
+			break
+		}
+		name = strings.TrimSpace(name)
+		picked, ab, err := runSelect("Accounts to tag \""+name+"\"", chosenItems, false)
+		if err != nil {
+			return nil, err
+		}
+		if ab {
+			continue
+		}
+		for _, pn := range picked {
+			tags[pn] = append(tags[pn], name)
+		}
+	}
+
+	var sels []awsconfig.Selection
+	for _, p := range profiles {
+		if !chosenSet[p.Name] {
+			continue
+		}
+		acct := p.AccountID
+		if id, ok := accountIDs[p.Name]; ok && id != "" {
+			acct = id
+		}
+		sels = append(sels, awsconfig.Selection{
+			Name: p.Name, Profile: p.Name, Region: p.Region,
+			AccountID: acct, Tags: tags[p.Name],
+		})
+	}
+	return sels, nil
 }
 
 func newInitCmd() *cobra.Command {
@@ -105,8 +179,22 @@ func newInitCmd() *cobra.Command {
 				}
 			}
 
-			choices := collectChoices(os.Stdin, os.Stderr, profiles, nonInteractive)
-			sels := buildSelections(profiles, choices, accountIDs)
+			var sels []awsconfig.Selection
+			interactive := !nonInteractive && isatty.IsTerminal(os.Stdin.Fd())
+			if interactive {
+				sels, err = interactiveTUI(profiles, accountIDs, promptLineStdin)
+				if err != nil {
+					return err
+				}
+			} else {
+				// Non-interactive: include all profiles with no tags/groups.
+				choices := make(map[string]profileChoice, len(profiles))
+				for _, p := range profiles {
+					choices[p.Name] = profileChoice{Include: true}
+				}
+				sels = buildSelections(profiles, choices, accountIDs)
+			}
+
 			if len(sels) == 0 {
 				return fmt.Errorf("no profiles selected; nothing to write")
 			}
@@ -135,71 +223,4 @@ func newInitCmd() *cobra.Command {
 	c.Flags().BoolVar(&verify, "verify", false, "run aws sts get-caller-identity per profile to confirm creds and fill account ids")
 	c.Flags().BoolVar(&nonInteractive, "non-interactive", false, "include all profiles with empty tags/groups (no prompts)")
 	return c
-}
-
-// collectChoices prompts (via r/w) for which profiles to include and their
-// tags/groups. With nonInteractive, every profile is included with no tags.
-// Tags/groups already entered for earlier accounts are surfaced as
-// suggestions so the user reuses a consistent set instead of retyping
-// (avoiding prod/production-style typos).
-func collectChoices(r io.Reader, w io.Writer, profiles []awsconfig.Profile, nonInteractive bool) map[string]profileChoice {
-	choices := map[string]profileChoice{}
-	if nonInteractive {
-		for _, p := range profiles {
-			choices[p.Name] = profileChoice{Include: true}
-		}
-		return choices
-	}
-	seenTags := newOrderedSet()
-	seenGroups := newOrderedSet()
-	sc := bufio.NewScanner(r)
-	for _, p := range profiles {
-		fmt.Fprintf(w, "Include profile %q (region=%s, account=%s)? [y/N] ", p.Name, p.Region, p.AccountID)
-		if !sc.Scan() {
-			break
-		}
-		if strings.ToLower(strings.TrimSpace(sc.Text())) != "y" {
-			continue
-		}
-		fmt.Fprintf(w, "  tags for %s (comma-separated, blank for none)%s: ", p.Name, suggestion(seenTags))
-		if !sc.Scan() {
-			break
-		}
-		tags := splitCSV(sc.Text())
-		seenTags.addAll(tags)
-		fmt.Fprintf(w, "  groups for %s (comma-separated, blank for none)%s: ", p.Name, suggestion(seenGroups))
-		if !sc.Scan() {
-			break
-		}
-		groups := splitCSV(sc.Text())
-		seenGroups.addAll(groups)
-		choices[p.Name] = profileChoice{Include: true, Tags: tags, Groups: groups}
-	}
-	return choices
-}
-
-// suggestion renders previously-entered values as a hint, or "" if none yet.
-func suggestion(s *orderedSet) string {
-	if len(s.items) == 0 {
-		return ""
-	}
-	return " [existing: " + strings.Join(s.items, ", ") + "]"
-}
-
-// orderedSet preserves first-seen insertion order for stable suggestion hints.
-type orderedSet struct {
-	items []string
-	seen  map[string]struct{}
-}
-
-func newOrderedSet() *orderedSet { return &orderedSet{seen: map[string]struct{}{}} }
-
-func (s *orderedSet) addAll(vs []string) {
-	for _, v := range vs {
-		if _, ok := s.seen[v]; ok {
-			continue
-		}
-		s.seen[v] = struct{}{}
-		s.items = append(s.items, v)
-	}
 }
