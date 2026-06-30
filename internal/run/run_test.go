@@ -26,3 +26,12 @@ func TestBuildCommandSubstitutes(t *testing.T) {
 		t.Fatalf("env = %v", cmd.Env)
 	}
 }
+
+func TestBuildCommandEmptyArgvPanics(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("expected panic on empty argv")
+		}
+	}()
+	BuildCommand(target.Target{}, "out", nil)
+}
