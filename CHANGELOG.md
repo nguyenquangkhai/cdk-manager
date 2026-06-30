@@ -4,11 +4,13 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-06-30
+
 ### Removed
 - Unwired bubbletea TUI scaffold (`internal/ui/tui.go`) and the `bubbletea` dependency. Progress reporting is per-target prefixed lines plus a final summary table; a live in-place table is deferred to a future release.
 
 ### Fixed
-- CI `lint` job pinned to Go 1.24 and golangci-lint v1.64.8 (newer "stable" Go tripped the bundled typechecker on the 1.26 stdlib).
+- CI `lint` job pinned to Go 1.24 and golangci-lint v1.64.8, dropped the noisy `revive` linter, and formatted all sources — the lint job is green again (newer "stable" Go had tripped the bundled typechecker on the 1.26 stdlib).
 
 ## [0.2.0] - 2026-06-30
 
