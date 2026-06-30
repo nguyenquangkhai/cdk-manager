@@ -63,10 +63,6 @@ func TestGenerateValidConfig(t *testing.T) {
 	if !strings.Contains(s, "account: \"111111111111\"") && !strings.Contains(s, "account: 111111111111") {
 		t.Errorf("expected account id in context:\n%s", s)
 	}
-	if strings.Contains(s, "prod-us") && strings.Contains(s, "account:") {
-		// prod-us has no AccountID -> must not emit an account key under it.
-		// (Light check: ensure the only account: line corresponds to dev-eu.)
-	}
 	// Round-trips into the real config schema.
 	var probe struct {
 		Accounts map[string]struct {

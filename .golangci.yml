@@ -2,8 +2,10 @@ linters:
   enable:
     - gofmt
     - govet
-    - revive
     - errcheck
     - staticcheck
     - ineffassign
     - unused
+  # revive intentionally omitted: its default unused-parameter rule is noisy
+  # for interface-mandated params (cobra cmd/args, injected callback ctx).
+  # govet + staticcheck cover the real defects.
