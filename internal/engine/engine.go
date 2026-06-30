@@ -58,29 +58,40 @@ func Run(ctx context.Context, jobs []Job, opts Options) []Result {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	sem := make(chan struct{}, opts.Concurrency)
 	results := make([]Result, len(jobs))
+
+	type item struct {
+		i   int
+		job Job
+	}
+	ch := make(chan item)
+
 	var wg sync.WaitGroup
-
-	for i, job := range jobs {
-		wg.Add(1)
-		go func(i int, job Job) {
-			defer wg.Done()
-			select {
-			case sem <- struct{}{}:
-			case <-ctx.Done():
-				results[i] = Result{Target: job.Target.Name, State: adapter.StateFailed, Err: ctx.Err()}
-				return
+	worker := func() {
+		defer wg.Done()
+		for it := range ch {
+			// Fail-fast: if the context was cancelled by an earlier failure,
+			// skip remaining jobs deterministically instead of running them.
+			if err := ctx.Err(); err != nil {
+				results[it.i] = Result{Target: it.job.Target.Name, State: adapter.StateFailed, Err: err}
+				continue
 			}
-			defer func() { <-sem }()
-
-			r := runOne(ctx, job, opts)
-			results[i] = r
+			r := runOne(ctx, it.job, opts)
+			results[it.i] = r
 			if r.State == adapter.StateFailed && opts.FailFast {
 				cancel()
 			}
-		}(i, job)
+		}
 	}
+
+	wg.Add(opts.Concurrency)
+	for w := 0; w < opts.Concurrency; w++ {
+		go worker()
+	}
+	for i, job := range jobs {
+		ch <- item{i: i, job: job}
+	}
+	close(ch)
 	wg.Wait()
 	return results
 }
