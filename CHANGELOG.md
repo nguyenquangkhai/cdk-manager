@@ -4,6 +4,10 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 
 ## [Unreleased]
 
+### Added
+- **Checkbox multiselect + bulk tagging in `cdkm init`:** interactive TTY flow with space-to-toggle, type-to-filter, `a` to select-all, and a bulk-tag loop to assign tag names across chosen accounts.
+- **`cdkm init --edit`:** generates a prefilled YAML config for every AWS profile (empty tags/groups) and opens it in `$VISUAL`/`$EDITOR`/`vi` for manual editing before writing `cdkm.yaml`.
+
 ## [0.2.1] - 2026-06-30
 
 ### Removed

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/nguyenquangkhai/cdk-manager/internal/awsconfig"
@@ -112,5 +114,45 @@ func TestInteractiveTUIBulkTags(t *testing.T) {
 	}
 	if byName["dev-eu"].AccountID != "999" {
 		t.Errorf("dev-eu should keep profile AccountID 999, got %q", byName["dev-eu"].AccountID)
+	}
+}
+
+func TestAllSelectionsEmptyTags(t *testing.T) {
+	profiles := []awsconfig.Profile{
+		{Name: "a", Region: "r1", AccountID: "1"},
+		{Name: "b", Region: "r2"},
+	}
+	sels := allSelections(profiles, map[string]string{"b": "2"})
+	if len(sels) != 2 {
+		t.Fatalf("got %d", len(sels))
+	}
+	for _, s := range sels {
+		if len(s.Tags) != 0 {
+			t.Errorf("%s should have empty tags, got %v", s.Name, s.Tags)
+		}
+	}
+	byName := map[string]awsconfig.Selection{}
+	for _, s := range sels {
+		byName[s.Name] = s
+	}
+	if byName["a"].AccountID != "1" || byName["b"].AccountID != "2" {
+		t.Errorf("account ids wrong: %+v", byName)
+	}
+}
+
+func TestEditInEditorRoundTrip(t *testing.T) {
+	orig := editorRunner
+	defer func() { editorRunner = orig }()
+	// Simulate an editor that appends a line.
+	editorRunner = func(path string) error {
+		b, _ := os.ReadFile(path)
+		return os.WriteFile(path, append(b, []byte("\n# edited\n")...), 0o644)
+	}
+	out, err := editInEditor([]byte("accounts: {}\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(out), "# edited") {
+		t.Errorf("editor changes not returned: %q", out)
 	}
 }

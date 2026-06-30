@@ -19,10 +19,24 @@ Once built, download prebuilt binaries from [Releases](https://github.com/nguyen
 Run `cdkm init` in your CDK project root to scaffold `cdkm.yaml` from your `~/.aws` profiles:
 
 ```bash
-cdkm init              # interactive picker — choose which profiles to include and assign tags/groups
-cdkm init --verify     # same, but first confirms credentials via `aws sts get-caller-identity` and fills account IDs
-cdkm init --stdout     # print to stdout instead of writing cdkm.yaml
+cdkm init                     # interactive checkbox picker — space to toggle, type to filter, a to select all, enter to confirm
+cdkm init --verify            # same, but first confirms credentials via `aws sts get-caller-identity` and fills account IDs
+cdkm init --edit              # open a prefilled config in $VISUAL/$EDITOR/vi for full manual control before writing
+cdkm init --non-interactive   # include all profiles with empty tags/groups (no prompts; useful in CI)
+cdkm init --stdout            # print to stdout instead of writing cdkm.yaml
+cdkm init --force             # overwrite an existing cdkm.yaml
 ```
+
+### Interactive flow
+
+When running on a TTY without `--non-interactive` or `--edit`, `cdkm init` launches a checkbox TUI:
+
+1. **Select accounts** — use `space` to toggle, type to filter by name, `a` to toggle all, `enter` to confirm.
+2. **Bulk tagging** — after selection, you are prompted for tag names. Enter a tag name, then pick which of the selected accounts receive it. Leave the tag name blank to finish.
+
+### `--edit` mode
+
+`cdkm init --edit` generates a prefilled YAML document containing every profile (with empty `tags` and `groups`) and opens it in your `$VISUAL` or `$EDITOR` (falls back to `vi`). Edit freely — add tags, groups, remove accounts — then save and quit. `cdkm` validates the YAML before writing `cdkm.yaml`.
 
 After the file is created, edit `tags`, `groups`, and `stacks` to match your project layout, then run your first deployment:
 

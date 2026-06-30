@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/nguyenquangkhai/cdk-manager/internal/awsconfig"
 	"github.com/nguyenquangkhai/cdk-manager/internal/tui"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 type profileChoice struct {
@@ -43,6 +45,69 @@ func buildSelections(profiles []awsconfig.Profile, choices map[string]profileCho
 		})
 	}
 	return sels
+}
+
+// allSelections builds a Selection for every profile with empty tags —
+// the prefilled document used for --edit. accountIDs may override AccountID.
+func allSelections(profiles []awsconfig.Profile, accountIDs map[string]string) []awsconfig.Selection {
+	sels := make([]awsconfig.Selection, 0, len(profiles))
+	for _, p := range profiles {
+		acct := p.AccountID
+		if id, ok := accountIDs[p.Name]; ok && id != "" {
+			acct = id
+		}
+		sels = append(sels, awsconfig.Selection{
+			Name:      p.Name,
+			Profile:   p.Name,
+			Region:    p.Region,
+			AccountID: acct,
+			Tags:      nil,
+			Groups:    nil,
+		})
+	}
+	return sels
+}
+
+// editorRunner opens path in the user's preferred editor.
+// Overridable in tests.
+var editorRunner = func(path string) error {
+	editor := os.Getenv("VISUAL")
+	if editor == "" {
+		editor = os.Getenv("EDITOR")
+	}
+	if editor == "" {
+		editor = "vi"
+	}
+	cmd := exec.Command(editor, path)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// editInEditor writes content to a temp file, invokes editorRunner, and
+// returns the edited bytes.
+func editInEditor(content []byte) ([]byte, error) {
+	f, err := os.CreateTemp("", "cdkm-*.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("create temp file: %w", err)
+	}
+	defer os.Remove(f.Name())
+	if _, err := f.Write(content); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("write temp file: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return nil, fmt.Errorf("close temp file: %w", err)
+	}
+	if err := editorRunner(f.Name()); err != nil {
+		return nil, fmt.Errorf("editor: %w", err)
+	}
+	edited, err := os.ReadFile(f.Name())
+	if err != nil {
+		return nil, fmt.Errorf("read edited file: %w", err)
+	}
+	return edited, nil
 }
 
 func defaultAWSPaths() (string, string) {
@@ -151,11 +216,13 @@ func newInitCmd() *cobra.Command {
 		toStdout       bool
 		verify         bool
 		nonInteractive bool
+		edit           bool
 	)
 	c := &cobra.Command{
 		Use:   "init",
 		Short: "Generate a starter cdkm.yaml from your AWS profiles",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Step 1: parse profiles (+ optional --verify enrichment).
 			cfgPath, credsPath := defaultAWSPaths()
 			profiles, err := awsconfig.Parse(cfgPath, credsPath)
 			if err != nil {
@@ -179,30 +246,55 @@ func newInitCmd() *cobra.Command {
 				}
 			}
 
-			var sels []awsconfig.Selection
-			interactive := !nonInteractive && isatty.IsTerminal(os.Stdin.Fd())
-			if interactive {
-				sels, err = interactiveTUI(profiles, accountIDs, promptLineStdin)
+			var out []byte
+
+			// Step 2: if --edit, open a prefilled config in $EDITOR.
+			if edit {
+				sels := allSelections(profiles, accountIDs)
+				doc, err := awsconfig.Generate(sels)
 				if err != nil {
 					return err
 				}
-			} else {
-				// Non-interactive: include all profiles with no tags/groups.
-				choices := make(map[string]profileChoice, len(profiles))
-				for _, p := range profiles {
-					choices[p.Name] = profileChoice{Include: true}
+				edited, err := editInEditor(doc)
+				if err != nil {
+					return err
 				}
-				sels = buildSelections(profiles, choices, accountIDs)
+				// Validate: attempt to unmarshal into a generic map to catch YAML errors.
+				var check interface{}
+				if err := yaml.Unmarshal(edited, &check); err != nil {
+					fmt.Fprintf(os.Stderr, "Parse error in edited config: %v\n", err)
+					fmt.Fprintf(os.Stderr, "Raw edited content:\n%s\n", edited)
+					return fmt.Errorf("edited config is not valid YAML: %w", err)
+				}
+				out = edited
+			} else {
+				// Step 3/4: interactive TUI or non-interactive all-profiles.
+				var sels []awsconfig.Selection
+				interactive := !nonInteractive && isatty.IsTerminal(os.Stdin.Fd())
+				if interactive {
+					sels, err = interactiveTUI(profiles, accountIDs, promptLineStdin)
+					if err != nil {
+						return err
+					}
+				} else {
+					// Non-interactive: include all profiles with no tags/groups.
+					choices := make(map[string]profileChoice, len(profiles))
+					for _, p := range profiles {
+						choices[p.Name] = profileChoice{Include: true}
+					}
+					sels = buildSelections(profiles, choices, accountIDs)
+				}
+
+				if len(sels) == 0 {
+					return fmt.Errorf("no profiles selected; nothing to write")
+				}
+				out, err = awsconfig.Generate(sels)
+				if err != nil {
+					return err
+				}
 			}
 
-			if len(sels) == 0 {
-				return fmt.Errorf("no profiles selected; nothing to write")
-			}
-			out, err := awsconfig.Generate(sels)
-			if err != nil {
-				return err
-			}
-
+			// Step 5: output — honor --stdout / --force / write cdkm.yaml.
 			if toStdout {
 				_, err := os.Stdout.Write(out)
 				return err
@@ -214,7 +306,7 @@ func newInitCmd() *cobra.Command {
 			if err := os.WriteFile(target, out, 0o644); err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "Wrote %s (%d account(s)). Review tags/groups/stacks before use.\n", target, len(sels))
+			fmt.Fprintf(os.Stderr, "Wrote %s. Review tags/groups/stacks before use.\n", target)
 			return nil
 		},
 	}
@@ -222,5 +314,6 @@ func newInitCmd() *cobra.Command {
 	c.Flags().BoolVar(&toStdout, "stdout", false, "print to stdout instead of writing cdkm.yaml")
 	c.Flags().BoolVar(&verify, "verify", false, "run aws sts get-caller-identity per profile to confirm creds and fill account ids")
 	c.Flags().BoolVar(&nonInteractive, "non-interactive", false, "include all profiles with empty tags/groups (no prompts)")
+	c.Flags().BoolVar(&edit, "edit", false, "open a prefilled config in $VISUAL/$EDITOR/vi for manual editing before writing")
 	return c
 }
