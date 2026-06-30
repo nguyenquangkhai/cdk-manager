@@ -74,3 +74,17 @@ func TestParseStatus(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildContextSorted(t *testing.T) {
+	tg := target.Target{
+		Name:    "x",
+		Profile: "p",
+		Region:  "r",
+		Context: map[string]string{"zebra": "z", "apple": "a", "mango": "m"},
+	}
+	cmd := New().Build(tg, adapter.OpDeploy, []string{"S"}, "never")
+	got := strings.Join(cmd.Args, " ")
+	if !strings.Contains(got, "-c apple=a -c mango=m -c zebra=z") {
+		t.Errorf("context vars not sorted: args = %q", got)
+	}
+}
