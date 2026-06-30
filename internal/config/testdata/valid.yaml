@@ -1,0 +1,20 @@
+defaults:
+  requireApproval: never
+accounts:
+  dev-eu:
+    profile: dev-eu
+    region: eu-west-1
+    tags: [dev, eu]
+    context: { env: dev }
+  prod-us:
+    profile: prod-us
+    region: us-east-1
+    tags: [prod, us]
+    context: { env: prod }
+groups:
+  prod: { tags: [prod] }
+  core: { accounts: [dev-eu, prod-us] }
+stacks:
+  shared: [NetworkStack, AppStack]
+  perAccount:
+    prod-us: [ProdOnlyStack]
