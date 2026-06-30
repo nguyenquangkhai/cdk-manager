@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/nguyenquangkhai/cdk-manager/internal/adapter"
 	"github.com/nguyenquangkhai/cdk-manager/internal/adapter/cdk"
@@ -15,6 +16,7 @@ import (
 	"github.com/nguyenquangkhai/cdk-manager/internal/safety"
 	"github.com/nguyenquangkhai/cdk-manager/internal/target"
 	"github.com/nguyenquangkhai/cdk-manager/internal/ui"
+	ver "github.com/nguyenquangkhai/cdk-manager/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -344,4 +346,27 @@ func addStatusCmd(root *cobra.Command) {
 		},
 	}
 	root.AddCommand(cmd)
+}
+
+func newVersionCmd() *cobra.Command {
+	var check bool
+	c := &cobra.Command{
+		Use:   "version",
+		Short: "Print cdkm version (and optionally check for updates)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !check {
+				fmt.Printf("cdkm %s\n", version)
+				return nil
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+			defer cancel()
+			_, err := ver.CheckNow(ctx, os.Stdout, versionCachePath, version, ver.GitHubFetcher)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "update check failed: %v\n", err)
+			}
+			return nil
+		},
+	}
+	c.Flags().BoolVar(&check, "check", false, "query GitHub for the latest release")
+	return c
 }

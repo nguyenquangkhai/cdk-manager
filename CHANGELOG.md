@@ -2,6 +2,13 @@
 
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and SemVer.
 
+## [Unreleased]
+
+### Added
+- Opt-in lefthook git hooks (gofmt/vet pre-commit, tests pre-push).
+- Update check: `cdkm version --check` plus a conservative, cached,
+  opt-out-able (`CDKM_NO_UPDATE_CHECK`) auto-warning when a newer release exists.
+
 ## [0.1.0] - 2026-06-30
 
 ### Added
