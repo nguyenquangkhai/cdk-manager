@@ -1,0 +1,5 @@
+accounts:
+  dev-us:
+    profile: dev-us
+    region: us-east-1
+    tags: [dev]

@@ -48,6 +48,9 @@ func Load(path string) (*Config, error) {
 	if c.Defaults.Concurrency == 0 {
 		c.Defaults.Concurrency = 4
 	}
+	if c.Defaults.RequireApproval == "" {
+		c.Defaults.RequireApproval = "never"
+	}
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}

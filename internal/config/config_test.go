@@ -10,11 +10,27 @@ func TestLoadValid(t *testing.T) {
 	if c.Defaults.Concurrency != 4 {
 		t.Errorf("concurrency = %d, want 4 (default applied)", c.Defaults.Concurrency)
 	}
+	if c.Defaults.RequireApproval != "never" {
+		t.Errorf("requireApproval = %q, want never", c.Defaults.RequireApproval)
+	}
 	if _, ok := c.Accounts["dev-eu"]; !ok {
 		t.Errorf("missing account dev-eu")
 	}
 	if got := c.Accounts["dev-eu"].Context["env"]; got != "dev" {
 		t.Errorf("dev-eu context env = %q, want dev", got)
+	}
+}
+
+func TestLoadDefaultsRequireApproval(t *testing.T) {
+	c, err := Load("testdata/no-approval.yaml")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if c.Defaults.RequireApproval != "never" {
+		t.Errorf("requireApproval = %q, want never (default applied)", c.Defaults.RequireApproval)
+	}
+	if c.Defaults.Concurrency != 4 {
+		t.Errorf("concurrency = %d, want 4 (default applied)", c.Defaults.Concurrency)
 	}
 }
 

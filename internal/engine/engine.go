@@ -130,6 +130,7 @@ func runOne(ctx context.Context, job Job, opts Options) Result {
 	go func() {
 		defer close(scanDone)
 		sc := bufio.NewScanner(pr)
+		sc.Buffer(make([]byte, 0, 64*1024), 1024*1024) // allow lines up to 1MB
 		for sc.Scan() {
 			line := sc.Text()
 			_, _ = lf.WriteString(line + "\n")

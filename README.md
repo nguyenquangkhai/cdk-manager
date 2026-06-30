@@ -2,7 +2,7 @@
 
 Fan AWS CDK operations across many accounts in parallel — from your laptop.
 
-`cdkm deploy --group prod` synthesizes and deploys to every account in the `prod` group concurrently, with each account's output isolated in `.cdkm/out/<account>`. Live progress table, safety gates on destroy, and a single CLI to rule them all.
+`cdkm deploy --group prod` synthesizes and deploys to every account in the `prod` group concurrently, with each account's output isolated in `cdk.out/<account>`. Live progress table, safety gates on destroy, and a single CLI to rule them all.
 
 ## Install
 
@@ -103,7 +103,7 @@ cdkm deploy --group prod [--stacks Stack1,Stack2] [--dry-run] [--concurrency N] 
 - `--require-approval`: CDK approval level (`never`, `any-change`, `broadening`)
 - `--fail-fast`: Abort remaining jobs on first failure
 
-Each account gets its own isolated output directory (`.cdkm/out/<account>`), logs in `.cdkm/logs/`, and a final state summary in `.cdkm/state.json`.
+Each account gets its own isolated output directory (`cdk.out/<account>`), logs in `.cdkm/logs/`, and a final state summary in `.cdkm/state.json`.
 
 ### destroy
 
@@ -195,7 +195,12 @@ Available on all commands:
 
 **Logs & State:** Every run stores per-target logs in `.cdkm/logs/` and a final state summary in `.cdkm/state.json` for auditing.
 
-**Isolation:** Each account's CloudFormation output is isolated in `.cdkm/out/<account>`, ensuring parallel deployments don't interfere.
+**Isolation:** Each account's CloudFormation output is isolated in `cdk.out/<account>`, ensuring parallel deployments don't interfere.
+
+## Limitations
+
+- **No automatic diff-before-deploy gate:** Inline diff preview before deploying is not automatic in v1. Run `cdkm diff <selector>` manually before `cdkm deploy` to review changes.
+- **`--profile-override` not yet implemented:** The design referenced a per-run profile override flag; it is not available in the current release.
 
 ## License
 
