@@ -14,9 +14,25 @@ go install github.com/nguyenquangkhai/cdk-manager/cmd/cdkm@latest
 
 Once built, download prebuilt binaries from [Releases](https://github.com/nguyenquangkhai/cdk-manager/releases).
 
+## Getting Started
+
+Run `cdkm init` in your CDK project root to scaffold `cdkm.yaml` from your `~/.aws` profiles:
+
+```bash
+cdkm init              # interactive picker — choose which profiles to include and assign tags/groups
+cdkm init --verify     # same, but first confirms credentials via `aws sts get-caller-identity` and fills account IDs
+cdkm init --stdout     # print to stdout instead of writing cdkm.yaml
+```
+
+After the file is created, edit `tags`, `groups`, and `stacks` to match your project layout, then run your first deployment:
+
+```bash
+cdkm deploy --group prod
+```
+
 ## Quick Start
 
-Create `cdkm.yaml` in your CDK project root:
+Create `cdkm.yaml` in your CDK project root manually if preferred:
 
 ```yaml
 defaults:

@@ -63,6 +63,7 @@ func init() {
 	addListCmd(rootCmd)
 	addStatusCmd(rootCmd)
 	rootCmd.AddCommand(newVersionCmd())
+	rootCmd.AddCommand(newInitCmd())
 }
 
 // Execute is the entry point called from main.
