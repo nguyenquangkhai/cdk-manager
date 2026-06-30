@@ -2,7 +2,7 @@
 
 # Build
 /dist/
-cdkm
+/cdkm
 *.exe
 
 # Runtime
