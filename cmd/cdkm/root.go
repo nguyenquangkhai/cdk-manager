@@ -18,7 +18,7 @@ func init() {
 	rootCmd = &cobra.Command{
 		Use:     "cdkm",
 		Short:   "CDK Manager — deploy/destroy/diff/synth across multiple AWS accounts",
-		Version: version,
+		Version: resolvedVersion,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if autoCheckAllowed() {
 				go func() {
@@ -33,7 +33,7 @@ func init() {
 				return
 			}
 			if autoCheckAllowed() {
-				ver.WarnIfOutdated(os.Stderr, versionCachePath, version)
+				ver.WarnIfOutdated(os.Stderr, versionCachePath, resolvedVersion)
 			}
 		},
 	}
@@ -81,7 +81,7 @@ func isTerminal() bool {
 // autoCheckAllowed returns true only when an automatic update check is
 // appropriate: a real release build, no opt-out env var, and a TTY.
 func autoCheckAllowed() bool {
-	if version == "dev" {
+	if resolvedVersion == "dev" {
 		return false
 	}
 	if os.Getenv("CDKM_NO_UPDATE_CHECK") != "" {

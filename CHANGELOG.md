@@ -7,6 +7,9 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 ### Added
 - `scripts/release.sh X.Y.Z` — one-command release: rolls `## [Unreleased]` into a dated version section, runs tests, commits, tags, and pushes (triggering GoReleaser). Supports `--dry-run`.
 
+### Fixed
+- `cdkm version` (and `--version`) reported `dev` for binaries installed via `go install ...@latest`, because the `-ldflags` version stamp is only applied by GoReleaser. It now falls back to the module version from `runtime/debug.ReadBuildInfo()`, so installed binaries report their real version (e.g. `v0.4.1`).
+
 ## [0.4.0] - 2026-07-01
 
 ### Added

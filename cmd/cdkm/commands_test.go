@@ -28,3 +28,12 @@ func TestBuildCDKJobs(t *testing.T) {
 		t.Fatalf("argv = %v", jobs[0].Command.Args)
 	}
 }
+
+func TestResolveVersionUsesLdflags(t *testing.T) {
+	old := version
+	defer func() { version = old }()
+	version = "1.2.3"
+	if got := resolveVersion(); got != "1.2.3" {
+		t.Fatalf("resolveVersion() = %q, want 1.2.3 (ldflags value wins)", got)
+	}
+}

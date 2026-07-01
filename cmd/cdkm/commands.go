@@ -355,12 +355,12 @@ func newVersionCmd() *cobra.Command {
 		Short: "Print cdkm version (and optionally check for updates)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !check {
-				fmt.Printf("cdkm %s\n", version)
+				fmt.Printf("cdkm %s\n", resolvedVersion)
 				return nil
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
 			defer cancel()
-			_, err := ver.CheckNow(ctx, os.Stdout, versionCachePath, version, ver.GitHubFetcher)
+			_, err := ver.CheckNow(ctx, os.Stdout, versionCachePath, resolvedVersion, ver.GitHubFetcher)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "update check failed: %v\n", err)
 			}
