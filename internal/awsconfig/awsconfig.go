@@ -98,47 +98,71 @@ func sectionToProfileName(section string) string {
 	}
 }
 
-func Generate(sels []Selection) ([]byte, error) {
-	type account struct {
-		Profile string            `yaml:"profile"`
-		Region  string            `yaml:"region"`
-		Tags    []string          `yaml:"tags"`
-		Context map[string]string `yaml:"context,omitempty"`
-	}
-	type group struct {
-		Accounts []string `yaml:"accounts"`
-	}
-	doc := struct {
-		Accounts map[string]account `yaml:"accounts"`
-		Groups   map[string]group   `yaml:"groups"`
-		Stacks   struct {
-			Shared []string `yaml:"shared"`
-		} `yaml:"stacks"`
-	}{
-		Accounts: map[string]account{},
-		Groups:   map[string]group{},
-	}
+// accountEntry is the per-account block shared by Generate and GenerateAccounts.
+type accountEntry struct {
+	Profile string            `yaml:"profile"`
+	Region  string            `yaml:"region"`
+	Tags    []string          `yaml:"tags"`
+	Context map[string]string `yaml:"context,omitempty"`
+}
 
+type groupEntry struct {
+	Accounts []string `yaml:"accounts"`
+}
+
+// buildAccountsGroups constructs the accounts and groups maps from sels.
+func buildAccountsGroups(sels []Selection) (map[string]accountEntry, map[string]groupEntry) {
+	accounts := map[string]accountEntry{}
+	groups := map[string]groupEntry{}
 	for _, s := range sels {
-		a := account{Profile: s.Profile, Region: s.Region, Tags: s.Tags}
+		a := accountEntry{Profile: s.Profile, Region: s.Region, Tags: s.Tags}
 		if a.Tags == nil {
 			a.Tags = []string{}
 		}
 		if s.AccountID != "" {
 			a.Context = map[string]string{"account": s.AccountID}
 		}
-		doc.Accounts[s.Name] = a
+		accounts[s.Name] = a
 		for _, g := range s.Groups {
-			gr := doc.Groups[g]
+			gr := groups[g]
 			gr.Accounts = append(gr.Accounts, s.Name)
-			doc.Groups[g] = gr
+			groups[g] = gr
 		}
 	}
-	for name, gr := range doc.Groups {
+	for name, gr := range groups {
 		sort.Strings(gr.Accounts)
-		doc.Groups[name] = gr
+		groups[name] = gr
+	}
+	return accounts, groups
+}
+
+// Generate produces a full cdkm.yaml with accounts, groups, and an empty stacks section.
+func Generate(sels []Selection) ([]byte, error) {
+	accounts, groups := buildAccountsGroups(sels)
+	doc := struct {
+		Accounts map[string]accountEntry `yaml:"accounts"`
+		Groups   map[string]groupEntry   `yaml:"groups"`
+		Stacks   struct {
+			Shared []string `yaml:"shared"`
+		} `yaml:"stacks"`
+	}{
+		Accounts: accounts,
+		Groups:   groups,
 	}
 	doc.Stacks.Shared = []string{}
+	return yaml.Marshal(doc)
+}
 
+// GenerateAccounts produces an accounts-only global config (no stacks section).
+// Use this when writing ~/.config/cdkm/config.yaml; stacks are project-level.
+func GenerateAccounts(sels []Selection) ([]byte, error) {
+	accounts, groups := buildAccountsGroups(sels)
+	doc := struct {
+		Accounts map[string]accountEntry `yaml:"accounts"`
+		Groups   map[string]groupEntry   `yaml:"groups"`
+	}{
+		Accounts: accounts,
+		Groups:   groups,
+	}
 	return yaml.Marshal(doc)
 }

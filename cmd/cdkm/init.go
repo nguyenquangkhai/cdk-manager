@@ -231,6 +231,7 @@ func newInitCmd() *cobra.Command {
 		verify         bool
 		nonInteractive bool
 		edit           bool
+		global         bool
 	)
 	c := &cobra.Command{
 		Use:   "init",
@@ -265,7 +266,12 @@ func newInitCmd() *cobra.Command {
 			// Step 2: if --edit, open a prefilled config in $EDITOR.
 			if edit {
 				sels := allSelections(profiles, accountIDs)
-				doc, err := awsconfig.Generate(sels)
+				var doc []byte
+				if global {
+					doc, err = awsconfig.GenerateAccounts(sels)
+				} else {
+					doc, err = awsconfig.Generate(sels)
+				}
 				if err != nil {
 					return err
 				}
@@ -306,17 +312,37 @@ func newInitCmd() *cobra.Command {
 				if len(sels) == 0 {
 					return fmt.Errorf("no profiles selected; nothing to write")
 				}
-				out, err = awsconfig.Generate(sels)
+				if global {
+					out, err = awsconfig.GenerateAccounts(sels)
+				} else {
+					out, err = awsconfig.Generate(sels)
+				}
 				if err != nil {
 					return err
 				}
 			}
 
-			// Step 5: output — honor --stdout / --force / write cdkm.yaml.
+			// Step 5: output — honor --stdout / --force / write target file.
 			if toStdout {
 				_, err := os.Stdout.Write(out)
 				return err
 			}
+
+			if global {
+				target := config.GlobalConfigPath()
+				if _, err := os.Stat(target); err == nil && !force {
+					return fmt.Errorf("%s already exists (use --force to overwrite or --stdout to print)", target)
+				}
+				if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+					return fmt.Errorf("create config dir: %w", err)
+				}
+				if err := os.WriteFile(target, out, 0o644); err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Wrote %s. Each project cdkm.yaml only needs stacks:.\n", target)
+				return nil
+			}
+
 			const target = "cdkm.yaml"
 			if _, err := os.Stat(target); err == nil && !force {
 				return fmt.Errorf("%s already exists (use --force to overwrite or --stdout to print)", target)
@@ -333,5 +359,6 @@ func newInitCmd() *cobra.Command {
 	c.Flags().BoolVar(&verify, "verify", false, "run aws sts get-caller-identity per profile to confirm creds and fill account ids")
 	c.Flags().BoolVar(&nonInteractive, "non-interactive", false, "include all profiles with empty tags/groups (no prompts)")
 	c.Flags().BoolVar(&edit, "edit", false, "open a prefilled config in $VISUAL/$EDITOR/vi for manual editing before writing")
+	c.Flags().BoolVar(&global, "global", false, "write accounts/groups to the global config (~/.config/cdkm/config.yaml) instead of cdkm.yaml")
 	return c
 }

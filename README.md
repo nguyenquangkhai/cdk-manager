@@ -40,6 +40,25 @@ When running on a TTY without `--non-interactive` or `--edit`, `cdkm init` launc
 
 After the file is created, edit `tags`, `groups`, and `stacks` to match your project layout, then run your first deployment:
 
+### Multiple projects
+
+If you work with the same AWS accounts across many CDK projects, run `cdkm init --global` once to write the shared accounts and groups config to `~/.config/cdkm/config.yaml`:
+
+```bash
+cdkm init --global                  # interactive — pick accounts, bulk-tag, write global config
+cdkm init --global --non-interactive  # include all profiles, no prompts
+cdkm init --global --stdout         # preview accounts-only YAML without writing
+cdkm init --global --force          # overwrite an existing global config
+```
+
+The global config path is resolved in this order:
+
+1. `$CDKM_GLOBAL_CONFIG` (if set)
+2. `$XDG_CONFIG_HOME/cdkm/config.yaml` (if `$XDG_CONFIG_HOME` is set)
+3. `~/.config/cdkm/config.yaml` (default)
+
+The global file contains only `accounts:` and `groups:` — no `stacks:`. Each project's `cdkm.yaml` then only needs a `stacks:` section (or can be omitted entirely to deploy all stacks). Local values override global ones: accounts/groups are merged by key (local wins on conflict), and `stacks` from the local file takes precedence wholesale.
+
 ```bash
 cdkm deploy --group prod
 ```

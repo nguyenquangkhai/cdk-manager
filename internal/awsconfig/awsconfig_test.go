@@ -47,6 +47,32 @@ func TestParseMissingFilesNotError(t *testing.T) {
 	}
 }
 
+func TestGenerateAccountsOmitsStacks(t *testing.T) {
+	out, err := GenerateAccounts([]Selection{
+		{Name: "a", Profile: "a", Region: "r", Tags: []string{"prod"}, Groups: []string{"prod"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(out)
+	if strings.Contains(s, "stacks") {
+		t.Errorf("global config must not contain stacks:\n%s", s)
+	}
+	if !strings.Contains(s, "profile: a") {
+		t.Errorf("missing account:\n%s", s)
+	}
+	var probe struct {
+		Accounts map[string]map[string]any `yaml:"accounts"`
+		Groups   map[string]map[string]any `yaml:"groups"`
+	}
+	if err := yaml.Unmarshal(out, &probe); err != nil {
+		t.Fatalf("invalid yaml: %v", err)
+	}
+	if _, ok := probe.Accounts["a"]; !ok {
+		t.Error("account a missing")
+	}
+}
+
 func TestGenerateValidConfig(t *testing.T) {
 	sels := []Selection{
 		{Name: "dev-eu", Profile: "dev-eu", Region: "eu-west-1", AccountID: "111111111111", Tags: []string{"dev", "eu"}, Groups: []string{"dev"}},
