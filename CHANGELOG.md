@@ -4,6 +4,8 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-07-01
+
 ### Added
 - `scripts/release.sh X.Y.Z` — one-command release: rolls `## [Unreleased]` into a dated version section, runs tests, commits, tags, and pushes (triggering GoReleaser). Supports `--dry-run`.
 
