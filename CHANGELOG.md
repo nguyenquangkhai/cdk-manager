@@ -4,6 +4,8 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-01
+
 ### Added
 - Layered global/local config: `config.LoadLayered` merges `~/.config/cdkm/config.yaml` (global) with the project's `cdkm.yaml` (local); local overrides global per-key for accounts/groups and wholesale for stacks.
 - `cdkm init --global`: writes accounts+groups (no stacks) to the global config path once; each project `cdkm.yaml` then only needs `stacks:`.
