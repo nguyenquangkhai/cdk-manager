@@ -81,6 +81,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if n := len(m.filter); n > 0 {
 				m.filter = m.filter[:n-1]
 			}
+		case tea.KeySpace:
+			m.filter += " "
 		case tea.KeyRunes:
 			m.filter += string(km.Runes)
 		}
@@ -104,7 +106,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.cursor < len(vis)-1 {
 			m.cursor++
 		}
-	case km.Type == tea.KeyRunes && string(km.Runes) == " ":
+	case km.Type == tea.KeySpace || (km.Type == tea.KeyRunes && string(km.Runes) == " "):
 		if m.cursor < len(vis) {
 			i := vis[m.cursor]
 			m.checked[i] = !m.checked[i]

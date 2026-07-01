@@ -16,6 +16,17 @@ func items() []Item {
 	}
 }
 
+// TestSpaceKeyTypeToggles guards against the real bubbletea spacebar arriving
+// as tea.KeySpace (not KeyRunes " "). A synthesized KeyRunes " " masked this.
+func TestSpaceKeyTypeToggles(t *testing.T) {
+	m := NewModel("Select", items(), false)
+	mm, _ := m.Update(tea.KeyMsg{Type: tea.KeySpace})
+	m = mm.(Model)
+	if got := m.Selected(); len(got) != 1 || got[0] != "prod-eu" {
+		t.Fatalf("tea.KeySpace should toggle current item; Selected()=%v", got)
+	}
+}
+
 func TestToggleAndSelect(t *testing.T) {
 	m := NewModel("Select", items(), false)
 	// move to first item already at 0; toggle it.

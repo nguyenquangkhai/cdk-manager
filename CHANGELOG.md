@@ -4,6 +4,11 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-07-01
+
+### Fixed
+- `cdkm init` checkbox picker: spacebar now toggles selection. bubbletea delivers space as `tea.KeySpace`, which the model didn't handle, so the key did nothing in a real terminal (unit tests had synthesized `KeyRunes " "`, masking it). Space now toggles in both the list and the filter input.
+
 ## [0.3.0] - 2026-07-01
 
 ### Added
