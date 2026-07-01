@@ -132,7 +132,9 @@ stacks:
 func TestLoadLayeredOnlyGlobal(t *testing.T) {
 	dir := t.TempDir()
 	g := filepath.Join(dir, "global.yaml")
-	os.WriteFile(g, []byte("accounts:\n  a: { profile: a, region: r }\n"), 0o644)
+	if err := os.WriteFile(g, []byte("accounts:\n  a: { profile: a, region: r }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	c, err := LoadLayered(g, filepath.Join(dir, "missing-local.yaml"))
 	if err != nil {
 		t.Fatalf("only-global should load: %v", err)
