@@ -285,6 +285,9 @@ func newInitCmd() *cobra.Command {
 						return fmt.Errorf("edited config failed validation: %w", err)
 					}
 					rejPath := "cdkm.yaml.rej"
+					if global {
+						rejPath = "cdkm-global.yaml.rej"
+					}
 					if werr := os.WriteFile(rejPath, edited, 0o644); werr != nil {
 						return fmt.Errorf("edited config failed validation: %w (also failed to save recovery file: %v)", err, werr)
 					}
