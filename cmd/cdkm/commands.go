@@ -79,7 +79,7 @@ func runCDKOp(
 	concurrency int, dryRun, failFast bool, requireApprovalFlag string,
 	cliStacks []string,
 ) error {
-	cfg, err := config.Load(configPath)
+	cfg, err := config.LoadLayered(config.GlobalConfigPath(), configPath)
 	if err != nil {
 		return err
 	}
@@ -246,7 +246,7 @@ func addRunCmd(root *cobra.Command) {
 			dryRun, _ := f.GetBool("dry-run")
 			failFast, _ := f.GetBool("fail-fast")
 
-			cfg, err := config.Load(configPath)
+			cfg, err := config.LoadLayered(config.GlobalConfigPath(), configPath)
 			if err != nil {
 				return err
 			}
@@ -305,7 +305,7 @@ func addListCmd(root *cobra.Command) {
 			account, _ := f.GetString("account")
 			tag, _ := f.GetString("tag")
 
-			cfg, err := config.Load(configPath)
+			cfg, err := config.LoadLayered(config.GlobalConfigPath(), configPath)
 			if err != nil {
 				return err
 			}
